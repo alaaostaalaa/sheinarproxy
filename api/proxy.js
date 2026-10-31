@@ -69,17 +69,14 @@ export default async function handler(req, res) {
       options.body = await readBody(req);
     }
 
-    console.log("TARGET:", targetUrl);
-
+    
     const upstream = await fetch(targetUrl, options);
 
     const responseBody = Buffer.from(
       await upstream.arrayBuffer()
     );
 
-    console.log("UPSTREAM STATUS:", upstream.status);
-    console.log("UPSTREAM TYPE:", upstream.headers.get("content-type"));
-
+    console.log("UPSTREAM RESULT:", req.method, targetUrl, "STATUS:", upstream.status, "TYPE:", upstream.headers.get("content-type"));
     res.status(upstream.status);
 
     const contentType = upstream.headers.get("content-type");
