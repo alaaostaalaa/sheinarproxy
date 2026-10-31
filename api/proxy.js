@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 
     const targetPath = originalPath.replace(
       "/eur/bff-api/",
-      "/ar/bff-api/"
+      "/tr/bff-api/"
     );
 
     incoming.searchParams.delete("path");
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     const headers = {
       "Accept": req.headers.accept || "*/*",
       "Accept-Language": req.headers["accept-language"] || "ar,en;q=0.9",
-      "Referer": "https://m.shein.com/ar/"
+      "Referer": "https://m.shein.com/tr/"
     };
 
     if (req.headers["content-type"]) {
