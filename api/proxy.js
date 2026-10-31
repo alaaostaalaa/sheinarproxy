@@ -6,6 +6,25 @@ export const config = {
 
 const SHEIN_HOST = "https://m.shein.com";
 
+const ALLOWED_HEADERS = [
+  "accept",
+  "accept-language",
+  "content-type",
+  "x-requested-with",
+  "x-csrf-token",
+  "anti-in",
+  "x-oest",
+  "webversion",
+  "x-ad-flag",
+  "x-time-zone",
+  "timezone",
+  "armortoken",
+  "uber-trace-id",
+  "hdata-c",
+  "x-gw-auth",
+  "x-cs-random"
+];
+
 async function readBody(req) {
   const chunks = [];
 
@@ -18,7 +37,6 @@ async function readBody(req) {
 
 export default async function handler(req, res) {
 
-  // CORS
   res.setHeader(
     "Access-Control-Allow-Origin",
     "https://m.shein.com"
@@ -31,7 +49,7 @@ export default async function handler(req, res) {
 
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Accept, X-Shein-Cookie"
+    "Content-Type, Accept, X-Shein-Cookie, X-Shein-Headers"
   );
 
   res.setHeader("Cache-Control", "no-store");
@@ -53,8 +71,8 @@ export default async function handler(req, res) {
       "https://proxy.local"
     );
 
-    // المسار الأصلي القادم من المتصفح
-    const originalPath = incoming.searchParams.get("path");
+    const originalPath =
+      incoming.searchParams.get("path");
 
     if (
       !originalPath ||
@@ -66,13 +84,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // تحويل EUR إلى TR
     const targetPath = originalPath.replace(
       "/eur/bff-api/",
       "/tr/bff-api/"
     );
 
-    // المحافظة على جميع Query Parameters
     incoming.searchParams.delete("path");
 
     const query = incoming.searchParams.toString();
@@ -82,30 +98,41 @@ export default async function handler(req, res) {
       targetPath +
       (query ? "?" + query : "");
 
-    // Headers
     const headers = {
-      "Accept": req.headers.accept || "*/*",
-      "Accept-Language":
-        req.headers["accept-language"] || "ar,en;q=0.9",
-      "Referer": "https://m.shein.com/tr/"
+      "Origin": SHEIN_HOST,
+      "Referer": "https://m.shein.com/tr/",
+      "Accept": "*/*"
     };
 
-    if (req.headers["content-type"]) {
-      headers["Content-Type"] =
-        req.headers["content-type"];
+    // استقبال الترويسات الأصلية
+    const forwarded = req.headers["x-shein-headers"];
+
+    if (forwarded) {
+      const parsed = JSON.parse(forwarded);
+
+      for (const [name, value] of Object.entries(parsed)) {
+
+        const key = name.toLowerCase();
+
+        if (
+          ALLOWED_HEADERS.includes(key) &&
+          typeof value === "string"
+        ) {
+          headers[name] = value;
+        }
+      }
     }
 
-    // تمرير Cookies
-    const sessionCookie = req.headers["x-shein-cookie"];
+    // Cookie اختياري
+    const cookie = req.headers["x-shein-cookie"];
 
-    if (sessionCookie) {
-      headers["Cookie"] = sessionCookie;
+    if (cookie) {
+      headers["Cookie"] = cookie;
     }
 
-    // إعداد الطلب
     const options = {
       method: req.method,
-      headers: headers,
+      headers,
       redirect: "follow"
     };
 
@@ -116,10 +143,9 @@ export default async function handler(req, res) {
     console.log(
       "PROXY TARGET:",
       req.method,
-      targetUrl
+      targetPath
     );
 
-    // إرسال الطلب إلى SHEIN
     const upstream = await fetch(
       targetUrl,
       options
@@ -135,7 +161,7 @@ export default async function handler(req, res) {
     console.log(
       "UPSTREAM RESULT:",
       req.method,
-      targetUrl,
+      targetPath,
       "STATUS:",
       upstream.status,
       "TYPE:",
@@ -145,10 +171,7 @@ export default async function handler(req, res) {
     res.status(upstream.status);
 
     if (contentType) {
-      res.setHeader(
-        "Content-Type",
-        contentType
-      );
+      res.setHeader("Content-Type", contentType);
     }
 
     return res.send(responseBody);
@@ -161,8 +184,7 @@ export default async function handler(req, res) {
     );
 
     return res.status(502).json({
-      error: "Proxy failed",
-      message: error.message
+      error: "Proxy failed"
     });
   }
 }
