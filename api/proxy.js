@@ -37,6 +37,7 @@ async function readBody(req) {
 
 export default async function handler(req, res) {
 
+  // CORS
   res.setHeader(
     "Access-Control-Allow-Origin",
     "https://m.shein.com"
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
     const originalPath =
       incoming.searchParams.get("path");
 
+    // السماح فقط بمسارات EUR BFF API
     if (
       !originalPath ||
       !originalPath.startsWith("/eur/bff-api/") ||
@@ -84,11 +86,10 @@ export default async function handler(req, res) {
       });
     }
 
-    const targetPath = originalPath.replace(
-      "/eur/bff-api/",
-      "/tr/bff-api/"
-    );
+    // البقاء على السوق الأوروبي
+    const targetPath = originalPath;
 
+    // المحافظة على Query Parameters
     incoming.searchParams.delete("path");
 
     const query = incoming.searchParams.toString();
@@ -98,24 +99,25 @@ export default async function handler(req, res) {
       targetPath +
       (query ? "?" + query : "");
 
+    // Headers
     const headers = {
       "Origin": SHEIN_HOST,
-      "Referer": "https://m.shein.com/tr/",
+      "Referer": "https://m.shein.com/eur/",
       "Accept": "*/*"
     };
 
     // استقبال الترويسات الأصلية
-    const forwarded = req.headers["x-shein-headers"];
+    const forwarded =
+      req.headers["x-shein-headers"];
 
     if (forwarded) {
+
       const parsed = JSON.parse(forwarded);
 
       for (const [name, value] of Object.entries(parsed)) {
 
-        const key = name.toLowerCase();
-
         if (
-          ALLOWED_HEADERS.includes(key) &&
+          ALLOWED_HEADERS.includes(name.toLowerCase()) &&
           typeof value === "string"
         ) {
           headers[name] = value;
@@ -123,7 +125,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Cookie اختياري
+    // Cookie إذا أُرسل
     const cookie = req.headers["x-shein-cookie"];
 
     if (cookie) {
@@ -146,6 +148,7 @@ export default async function handler(req, res) {
       targetPath
     );
 
+    // إرسال الطلب إلى SHEIN EUR
     const upstream = await fetch(
       targetUrl,
       options
@@ -171,7 +174,10 @@ export default async function handler(req, res) {
     res.status(upstream.status);
 
     if (contentType) {
-      res.setHeader("Content-Type", contentType);
+      res.setHeader(
+        "Content-Type",
+        contentType
+      );
     }
 
     return res.send(responseBody);
